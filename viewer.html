@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crowned and Bound Viewer</title>
+  <style>
+    body { margin: 0; overflow: hidden; background-color: #f0f8ff; }
+    canvas { display: block; }
+    #info {
+      position: absolute;
+      top: 10px;
+      width: 100%;
+      text-align: center;
+      color: #333;
+      font-family: Arial, sans-serif;
+      pointer-events: none;
+      font-weight: bold;
+    }
+    #loading {
+      position: absolute;
+      top: 50%;
+      width: 100%;
+      text-align: center;
+      color: #333;
+      font-family: Arial, sans-serif;
+      font-size: 18px;
+    }
+    #controls-info {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: rgba(255,255,255,0.85);
+      padding: 10px;
+      border-radius: 5px;
+      color: #333;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      border: 1px solid #e0e0e0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .control-highlight {
+      background-color: rgba(255,165,0,0.5);
+      border-radius: 3px;
+      padding: 2px 5px;
+    }
+    /* Navigation controls on left side */
+    #navigation-controls {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      left: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .nav-button {
+      width: 35px;
+      height: 35px;
+      border-radius: 50%;
+      background-color: rgba(255,255,255,0.8);
+      border: 1px solid #ddd;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: #333;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .nav-button:hover {
+      background-color: rgba(240,240,240,0.9);
+    }
+    /* View cube control */
+    #view-cube {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 60px;
+      height: 60px;
+      background-color: rgba(255,255,255,0.8);
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    .cube-face {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: rgba(240,240,240,0.7);
+      color: #333;
+      font-family: Arial, sans-serif;
+      font-size: 10px;
+      font-weight: bold;
+      cursor: pointer;
+      border: 1px solid #ccc;
+    }
+    .cube-face:hover {
+      background-color: rgba(220,220,220,0.9);
+    }
+    #cube-top {
+      width: 30px;
+      height: 30px;
+      top: 0;
+      left: 15px;
+    }
+    #cube-front {
+      width: 30px;
+      height: 15px;
+      top: 30px;
+      left: 15px;
+    }
+    #cube-left {
+      width: 15px;
+      height: 15px;
+      top: 30px;
+      left: 0px;
+    }
+    #cube-right {
+      width: 15px;
+      height: 15px;
+      top: 30px;
+      left: 45px;
+    }
+    #cube-home {
+      width: 30px;
+      height: 15px;
+      top: 45px;
+      left: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div id="info">Crowned and Bound Viewer</div>
+  <div id="loading">Loading 3D model...</div>
+  
+  <div id="controls-info">
+    <div><strong>Mouse Controls:</strong></div>
+    <div>Left-click + drag: Rotate view</div>
+    <div>Right-click + drag: Pan view</div>
+    <div>Scroll wheel: Zoom in/out</div>
+  </div>
+  
+  <!-- Navigation cube -->
+  <div id="view-cube">
+    <div id="cube-top" class="cube-face">TOP</div>
+    <div id="cube-front" class="cube-face">FRONT</div>
+    <div id="cube-left" class="cube-face">LEFT</div>
+    <div id="cube-right" class="cube-face">RIGHT</div>
+    <div id="cube-home" class="cube-face">HOME</div>
+  </div>
+  
+  <!-- Zoom and navigation buttons on left side -->
+  <div id="navigation-controls">
+    <div class="nav-button" id="zoom-in">+</div>
+    <div class="nav-button" id="zoom-out">−</div>
+    <div class="nav-button" id="home-view">⌂</div>
+  </div>
+  
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+    import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
+
+    // Set up scene
+    const scene = new THREE.Scene();
+
+    // Set up camera
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(5, 5, 5); // Position camera at an angle for better initial view
+
+    // Set up renderer
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    // Add renderer settings for better material appearance
+    renderer.physicallyCorrectLights = true;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+
+    // Make background slightly gradient like Tinkercad
+    const canvasSize = renderer.getSize(new THREE.Vector2());
+    const gradientTexture = new THREE.CanvasTexture(
+      createGradientCanvas(canvasSize.width, canvasSize.height)
+    );
+    scene.background = gradientTexture;
+    
+    // Create a smooth gradient background like in Tinkercad
+    function createGradientCanvas(width, height) {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+      
+      // Create gradient (pale blue to white)
+      const gradient = context.createLinearGradient(0, 0, 0, height);
+      gradient.addColorStop(0, '#e6f7ff'); // Very light blue at top
+      gradient.addColorStop(1, '#f8fcff'); // Almost white at bottom
+      
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, width, height);
+      
+      return canvas;
+    }
+    
+    // Update gradient on window resize
+    window.addEventListener('resize', function() {
+      const newSize = renderer.getSize(new THREE.Vector2());
+      gradientTexture.image = createGradientCanvas(newSize.width, newSize.height);
+      gradientTexture.needsUpdate = true;
+    });
+
+    // Add environment map for better reflections and brighter materials
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    pmremGenerator.compileEquirectangularShader();
+    
+    // Create a simple environment map
+    const envScene = new THREE.Scene();
+    envScene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
+    const envMap = pmremGenerator.fromScene(envScene).texture;
+    scene.environment = envMap;
+
+    // Add improved environment lighting for better reflections
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.6);
+    hemiLight.position.set(0, 500, 0);
+    scene.add(hemiLight);
+    
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(1, 1, 1);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+    
+    // Add subtle ambient occlusion for depth
+    const aoLight = new THREE.AmbientLight(0x404040, 0.5);
+    scene.add(aoLight);
+
+    // A nice clean blue grid plane like Tinkercad
+    const planeGeometry = new THREE.PlaneGeometry(50, 50);
+    const planeMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0xf0f8ff, // Very light blue
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.6
+    });
+    const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+    plane.rotation.x = Math.PI / 2; // Rotate to be horizontal
+    plane.position.y = -0.01; // Slightly below the grid to avoid z-fighting
+    scene.add(plane);
+    
+    // Clean light blue grid like in the images
+    const gridSize = 50;
+    const gridDivisions = 50;
+    const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, 0x90caf9, 0xbbdefb);
+    gridHelper.material.transparent = true;
+    gridHelper.material.opacity = 0.5;
+    scene.add(gridHelper);
+
+    // Add orbit controls with improved zoom
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.25;
+    controls.minDistance = 1.5; // Prevent zooming too close
+    controls.maxDistance = 20; // Prevent zooming too far
+    controls.enablePan = true; // Always enable panning
+    controls.addEventListener('change', render);
+    
+    // Disable the default mouse wheel zoom
+    controls.enableZoom = false;
+    
+    // Implement custom zoom with fixed increments
+    renderer.domElement.addEventListener('wheel', function(event) {
+      event.preventDefault();
+      
+      // Get current distance
+      const distance = camera.position.distanceTo(controls.target);
+      
+      // Apply zoom with very small fixed increments
+      if (event.deltaY > 0 && distance < controls.maxDistance) {
+        // Zoom out - small fixed step
+        camera.position.multiplyScalar(1.015);
+      } else if (event.deltaY < 0 && distance > controls.minDistance) {
+        // Zoom in - small fixed step
+        camera.position.multiplyScalar(0.985);
+      }
+      
+      controls.update();
+    }, { passive: false });
+    
+    // Add visual feedback for mouse controls
+    let isRotating = false;
+    let isPanning = false;
+    let isZooming = false;
+    
+    // Track mouse wheel for zoom effect
+    let lastScrollTime = 0;
+    const scrollFeedbackDuration = 500; // ms
+    
+    // Visual indicator for active controls
+    function updateControlHighlights() {
+      document.querySelectorAll('#controls-info div').forEach(el => {
+        el.classList.remove('control-highlight');
+      });
+      
+      if (isRotating) {
+        document.querySelector('#controls-info div:nth-child(2)').classList.add('control-highlight');
+      }
+      if (isPanning) {
+        document.querySelector('#controls-info div:nth-child(3)').classList.add('control-highlight');
+      }
+      if (isZooming) {
+        document.querySelector('#controls-info div:nth-child(4)').classList.add('control-highlight');
+      }
+    }
+    
+    // Add event listeners to show active controls
+    renderer.domElement.addEventListener('mousedown', (event) => {
+      if (event.button === 0) { // Left button
+        isRotating = true;
+      } else if (event.button === 2) { // Right button
+        isPanning = true;
+      }
+      updateControlHighlights();
+    });
+    
+    renderer.domElement.addEventListener('wheel', () => {
+      isZooming = true;
+      lastScrollTime = Date.now();
+      updateControlHighlights();
+      
+      // Reset zoom highlight after a delay
+      setTimeout(() => {
+        if (Date.now() - lastScrollTime >= scrollFeedbackDuration) {
+          isZooming = false;
+          updateControlHighlights();
+        }
+      }, scrollFeedbackDuration);
+    });
+    
+    window.addEventListener('mouseup', () => {
+      isRotating = false;
+      isPanning = false;
+      updateControlHighlights();
+    });
+    
+    // Disable context menu on right-click to enable panning
+    renderer.domElement.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+    });
+    
+    // Create a group to hold the model
+    const modelGroup = new THREE.Group();
+    scene.add(modelGroup);
+    
+    // Initial rotation (rotate up by default)
+    modelGroup.rotation.x = -Math.PI / 2; // Rotate 90 degrees around X axis
+    
+    // Set up navigation buttons
+    document.getElementById('zoom-in').addEventListener('click', () => {
+      const distance = camera.position.distanceTo(controls.target);
+      if (distance > controls.minDistance) {
+        camera.position.multiplyScalar(0.9);
+        controls.update();
+      }
+    });
+    
+    document.getElementById('zoom-out').addEventListener('click', () => {
+      const distance = camera.position.distanceTo(controls.target);
+      if (distance < controls.maxDistance) {
+        camera.position.multiplyScalar(1.1);
+        controls.update();
+      }
+    });
+    
+    document.getElementById('home-view').addEventListener('click', () => {
+      camera.position.set(0, 0, 5);
+      camera.lookAt(0, 0, 0);
+      modelGroup.rotation.set(-Math.PI / 2, 0, 0);
+      controls.update();
+    });
+    
+    // Set up view cube
+    document.getElementById('cube-top').addEventListener('click', () => {
+      camera.position.set(0, 5, 0);
+      camera.up.set(0, 0, -1);
+      camera.lookAt(0, 0, 0);
+      controls.update();
+    });
+    
+    document.getElementById('cube-front').addEventListener('click', () => {
+      camera.position.set(0, 0, 5);
+      camera.up.set(0, 1, 0);
+      camera.lookAt(0, 0, 0);
+      controls.update();
+    });
+    
+    document.getElementById('cube-left').addEventListener('click', () => {
+      camera.position.set(-5, 0, 0);
+      camera.up.set(0, 1, 0);
+      camera.lookAt(0, 0, 0);
+      controls.update();
+    });
+    
+    document.getElementById('cube-right').addEventListener('click', () => {
+      camera.position.set(5, 0, 0);
+      camera.up.set(0, 1, 0);
+      camera.lookAt(0, 0, 0);
+      controls.update();
+    });
+    
+    document.getElementById('cube-home').addEventListener('click', () => {
+      camera.position.set(3, 3, 3);
+      camera.up.set(0, 1, 0);
+      camera.lookAt(0, 0, 0);
+      controls.update();
+    });
+    
+    // Function to check if file exists
+    const fileExists = async (url) => {
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+        return response.ok;
+      } catch (error) {
+        return false;
+      }
+    };
+    
+    // Path to your MTL file - Make sure this is in the same folder as your OBJ file
+    // and has the same base name (e.g., tinkercad.obj and tinkercad.mtl)
+    const mtlUrl = 'tinkercad.mtl';
+    
+    // Check if MTL file exists and load it
+    (async () => {
+      const hasMtl = await fileExists(mtlUrl);
+      
+      if (hasMtl) {
+        // If MTL exists, load it first
+        const mtlLoader = new MTLLoader();
+        
+        // Set path to help with relative texture paths
+        const lastSlashIndex = mtlUrl.lastIndexOf('/');
+        const basePath = lastSlashIndex !== -1 ? mtlUrl.slice(0, lastSlashIndex + 1) : '';
+        mtlLoader.setPath(basePath);
+        
+        // Add cross origin setting to help with loading
+        mtlLoader.setCrossOrigin('anonymous');
+        
+        mtlLoader.load(mtlUrl, (materials) => {
+          materials.preload();
+          
+          // Log materials for debugging
+          console.log("MTL materials loaded:", materials);
+          
+          const loader = new OBJLoader();
+          loader.setPath(basePath);
+          loader.setMaterials(materials);
+          loadObjModel(loader);
+        }, 
+        // Progress callback
+        (xhr) => {
+          console.log("MTL loading: " + (xhr.loaded / xhr.total * 100) + "%");
+        },
+        // Error callback
+        (error) => {
+          console.warn('MTL file failed to load:', error);
+          console.warn('Proceeding with OBJ only');
+          const loader = new OBJLoader();
+          loadObjModel(loader);
+        });
+      } else {
+        console.log("No MTL file found, loading OBJ only");
+        // If no MTL, just load the OBJ
+        const loader = new OBJLoader();
+        loadObjModel(loader);
+      }
+    })();
+    
+    // Function to load OBJ model
+    function loadObjModel(loader) {
+      loader.load(
+        'tinkercad.obj',  // Path to your OBJ file
+        function (object) {
+          // Hide loading message
+          document.getElementById('loading').style.display = 'none';
+          
+          // Center object
+          const box = new THREE.Box3().setFromObject(object);
+          const center = box.getCenter(new THREE.Vector3());
+          const size = box.getSize(new THREE.Vector3());
+          
+          // Scale object to fit view
+          const maxDim = Math.max(size.x, size.y, size.z);
+          const scale = 3 / maxDim;
+          object.scale.set(scale, scale, scale);
+          
+          // Center object
+          object.position.sub(center.multiplyScalar(scale));
+          
+          // Create edge outline material - only show edges, not face diagonals
+          object.traverse(function (child) {
+            if (child.isMesh) {
+              // Remove any existing line segments first
+              child.children = child.children.filter(c => !(c instanceof THREE.LineSegments));
+              
+              // Create proper edge outline that only shows actual edges
+              const edgesGeometry = new THREE.EdgesGeometry(child.geometry, 30); // 30-degree threshold
+              const lineMaterial = new THREE.LineBasicMaterial({ 
+                color: 0x333333, 
+                linewidth: 1
+              });
+              const outlines = new THREE.LineSegments(edgesGeometry, lineMaterial);
+              child.add(outlines);
+              
+              // Determine material color based on the material from MTL file
+              // or apply default colors if no material defined
+              if (!child.material || !child.material.color) {
+                // Default to gray if no color information
+                child.material = new THREE.MeshStandardMaterial({
+                  color: 0xa0a0a0, // Tinkercad gray
+                  metalness: 0.0,
+                  roughness: 0.2,
+                  envMap: envMap,
+                  envMapIntensity: 0.8,
+                  flatShading: false
+                });
+              }
+            }
+          });
+          
+          // Add object to model group
+          modelGroup.add(object);
+          modelGroup.position.y = 1.0;  // Adjust this number to move the model higher
+          // Render the scene
+          render();
+        },
+        // Progress callback
+        function (xhr) {
+          const percentComplete = xhr.loaded / xhr.total * 100;
+          document.getElementById('loading').textContent = 
+            'Loading 3D model: ' + Math.round(percentComplete) + '%';
+        },
+        // Error callback
+        function (error) {
+          console.error('An error happened while loading the model', error);
+          document.getElementById('loading').textContent = 
+            'Error loading model. Check console for details.';
+        }
+      );
+    }
+
+    // Handle window resize
+    window.addEventListener('resize', function() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      render();
+    });
+
+    // Add a simple function for rendering the scene
+    function render() {
+      renderer.render(scene, camera);
+    }
+    
+    // Animation loop
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      render();
+    }
+    
+    animate();
+  </script>
+</body>
+</html>
