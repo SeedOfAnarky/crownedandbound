@@ -241,6 +241,61 @@
             border-color: var(--gold);
         }
         
+        /* Model Viewer Section */
+        .model-viewer-section {
+            width: 100%;
+            padding: 40px 20px;
+            text-align: center;
+            background-color: var(--black);
+            color: white;
+        }
+        
+        .model-viewer-title {
+            font-size: 22px;
+            margin-bottom: 15px;
+            font-weight: 300;
+            color: var(--gold);
+        }
+        
+        .model-viewer-description {
+            font-size: 16px;
+            max-width: 600px;
+            margin: 0 auto 25px;
+            opacity: 0.9;
+        }
+        
+        .model-selector {
+            margin-bottom: 25px;
+        }
+        
+        .model-selector select {
+            padding: 10px 15px;
+            font-size: 14px;
+            border: 1px solid var(--light-gray);
+            background-color: white;
+            border-radius: 2px;
+            cursor: pointer;
+            outline: none;
+        }
+        
+        .model-viewer-button {
+            display: inline-block;
+            padding: 12px 30px;
+            border: 1px solid var(--gold);
+            background-color: var(--gold);
+            color: var(--black);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 14px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .model-viewer-button:hover {
+            background-color: transparent;
+            color: var(--gold);
+        }
+        
         /* Responsive Design */
         @media (max-width: 768px) {
             .collections {
@@ -326,6 +381,39 @@
             <p class="vow-description">Our most exclusive line created for couples who have made the deepest commitment. Each piece is uniquely engraved with a serial number that connects you eternally to your partner, available only after registration and application.</p>
             <a href="#" class="vow-button">View The Vow Collection</a>
         </section>
+        
+        <!-- Model Viewer Section -->
+        <section class="model-viewer-section">
+            <h2 class="model-viewer-title">Explore Our Products in 3D</h2>
+            <p class="model-viewer-description">Get a closer look at our craftsmanship with our interactive 3D model viewer.</p>
+            
+            <div class="model-selector">
+                <select id="model-dropdown">
+                    <option value="bracelet">Crowned Leather Bracelet</option>
+                    <option value="bangle">Bound Gold Bangle</option>
+                    <option value="signet">Royal Signet Ring</option>
+                    <option value="collar">Devotion Collar</option>
+                    <option value="custom">Custom Vow Piece</option>
+                </select>
+            </div>
+            
+            <a href="viewer.html" id="view-model-button" class="model-viewer-button">View 3D Model</a>
+        </section>
     </div>
+    
+    <script>
+        // Script to handle model selection
+        document.getElementById('model-dropdown').addEventListener('change', function() {
+            const selectedModel = this.value;
+            const viewerButton = document.getElementById('view-model-button');
+            
+            // Update the link to include the selected model as a parameter
+            viewerButton.href = `viewer.html?model=${selectedModel}`;
+        });
+        
+        // Initialize the link with the default selected model
+        const defaultModel = document.getElementById('model-dropdown').value;
+        document.getElementById('view-model-button').href = `viewer.html?model=${defaultModel}`;
+    </script>
 </body>
 </html>
